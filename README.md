@@ -1,16 +1,12 @@
-# Adafruit SSD1327 [![Build Status](https://github.com/adafruit/Adafruit_SSD1327/workflows/Arduino%20Library%20CI/badge.svg)](https://github.com/adafruit/Adafruit_SSD1327/actions)[![Documentation](https://github.com/adafruit/ci-arduino/blob/master/assets/doxygen_badge.svg)](http://adafruit.github.io/Adafruit_SSD1327/html/index.html)
+# Adafruit SSD1322
 
-This is the Adafruit SSD1327 Arduino Library for Arduino
-Tested and works great with the Adafruit SSD1327 Breakout Board
+This is a library to support displays based on the SSD1322 chipset.
+It is based directly on the Adafruit SSD1327 Arduino Library for Arduino.
 
-[<img src="https://cdn-shop.adafruit.com/1200x900/4741-07.jpg" width="500px">](https://www.adafruit.com/?q=monochrome%20oled)
-
-These displays use I2C or SPI to communicate
-
-Adafruit invests time and resources providing this open source code, please support Adafruit and open-source hardware by purchasing products from Adafruit!
+These displays use SPI to communicate.
 
 # Installation
-To install, use the Arduino Library Manager and search for "Adafruit SSD1327" and install the library.
+XXXX
 
 ## Dependencies
  * [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library)
