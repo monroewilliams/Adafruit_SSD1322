@@ -1,4 +1,9 @@
 /*********************************************************************
+This is a library for the SSD1322, based directly on the Adafruit SSD1327
+library. The original comment for that library is left below for reference.
+*********************************************************************/
+
+/*********************************************************************
 This is a library for our grayscale OLEDs based on SSD1327 drivers
 
   Pick one up today in the adafruit shop!
@@ -16,13 +21,13 @@ All text above, and the splash screen below must be included in any
 redistribution
 *********************************************************************/
 
-#include "Adafruit_SSD1327.h"
+#include "Adafruit_SSD1322.h"
 #include "splash.h"
 
 // CONSTRUCTORS, DESTRUCTOR ------------------------------------------------
 
 /*!
-    @brief  Constructor for I2C-interfaced SSD1327 displays.
+    @brief  Constructor for I2C-interfaced SSD1322 displays.
     @param  w
             Display width in pixels
     @param  h
@@ -35,16 +40,16 @@ redistribution
             (some displays might be wired to share the microcontroller's
             reset pin).
     @param  clkDuring
-            Speed (in Hz) for Wire transmissions in SSD1327 library calls.
+            Speed (in Hz) for Wire transmissions in SSD1322 library calls.
             Defaults to 400000 (400 KHz), a known 'safe' value for most
-            microcontrollers, and meets the SSD1327 datasheet spec.
+            microcontrollers, and meets the SSD1322 datasheet spec.
             Some systems can operate I2C faster (800 KHz for ESP32, 1 MHz
             for many other 32-bit MCUs), and some (perhaps not all)
-            SSD1327's can work with this -- so it's optionally be specified
+            SSD1322's can work with this -- so it's optionally be specified
             here and is not a default behavior. (Ignored if using pre-1.5.7
             Arduino software, which operates I2C at a fixed 100 KHz.)
     @param  clkAfter
-            Speed (in Hz) for Wire transmissions following SSD1327 library
+            Speed (in Hz) for Wire transmissions following SSD1322 library
             calls. Defaults to 100000 (100 KHz), the default Arduino Wire
             speed. This is done rather than leaving it at the 'during' speed
             because other devices on the I2C bus might not be compatible
@@ -53,13 +58,13 @@ redistribution
     @note   Call the object's begin() function before use -- buffer
             allocation is performed there!
 */
-Adafruit_SSD1327::Adafruit_SSD1327(uint16_t w, uint16_t h, TwoWire *twi,
+Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, TwoWire *twi,
                                    int8_t rst_pin, uint32_t clkDuring,
                                    uint32_t clkAfter)
     : Adafruit_GrayOLED(4, w, h, twi, rst_pin, clkDuring, clkAfter) {}
 
 /*!
-    @brief  Constructor for SPI SSD1327 displays, using software (bitbang)
+    @brief  Constructor for SPI SSD1322 displays, using software (bitbang)
             SPI.
     @param  w
             Display width in pixels
@@ -84,13 +89,13 @@ Adafruit_SSD1327::Adafruit_SSD1327(uint16_t w, uint16_t h, TwoWire *twi,
     @note   Call the object's begin() function before use -- buffer
             allocation is performed there!
 */
-Adafruit_SSD1327::Adafruit_SSD1327(uint16_t w, uint16_t h, int8_t mosi_pin,
+Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, int8_t mosi_pin,
                                    int8_t sclk_pin, int8_t dc_pin,
                                    int8_t rst_pin, int8_t cs_pin)
     : Adafruit_GrayOLED(4, w, h, mosi_pin, sclk_pin, dc_pin, rst_pin, cs_pin) {}
 
 /*!
-    @brief  Constructor for SPI SSD1327 displays, using native hardware SPI.
+    @brief  Constructor for SPI SSD1322 displays, using native hardware SPI.
     @param  w
             Display width in pixels
     @param  h
@@ -114,29 +119,29 @@ Adafruit_SSD1327::Adafruit_SSD1327(uint16_t w, uint16_t h, int8_t mosi_pin,
     @note   Call the object's begin() function before use -- buffer
             allocation is performed there!
 */
-Adafruit_SSD1327::Adafruit_SSD1327(uint16_t w, uint16_t h, SPIClass *spi,
+Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, SPIClass *spi,
                                    int8_t dc_pin, int8_t rst_pin, int8_t cs_pin,
                                    uint32_t bitrate)
     : Adafruit_GrayOLED(4, w, h, spi, dc_pin, rst_pin, cs_pin, bitrate) {}
 
 /*!
-    @brief  Destructor for Adafruit_SSD1327 object.
+    @brief  Destructor for Adafruit_SSD1322 object.
 */
-Adafruit_SSD1327::~Adafruit_SSD1327(void) {}
+Adafruit_SSD1322::~Adafruit_SSD1322(void) {}
 
 // ALLOCATE & INIT DISPLAY -------------------------------------------------
 
 /*!
     @brief  Allocate RAM for image buffer, initialize peripherals and pins.
     @param  addr
-            I2C address of corresponding SSD1327 display.
+            I2C address of corresponding SSD1322 display.
             SPI displays (hardware or software) do not use addresses, but
             this argument is still required (pass 0 or any value really,
             it will simply be ignored). Default if unspecified is 0.
     @param  reset
             If true, and if the reset pin passed to the constructor is
             valid, a hard reset will be performed before initializing the
-            display. If using multiple SSD1327 displays on the same bus, and
+            display. If using multiple SSD1322 displays on the same bus, and
             if they all share the same reset pin, you should only pass true
             on the first display being initialized, false on all others,
             else the already-initialized displays would be reset. Default if
@@ -146,7 +151,7 @@ Adafruit_SSD1327::~Adafruit_SSD1327(void) {}
             proceeding.
     @note   MUST call this function before any drawing or updates!
 */
-bool Adafruit_SSD1327::begin(uint8_t addr, bool reset) {
+bool Adafruit_SSD1322::begin(uint8_t addr, bool reset) {
 
   if (!Adafruit_GrayOLED::_init(addr, reset)) {
     return false;
@@ -160,39 +165,39 @@ bool Adafruit_SSD1327::begin(uint8_t addr, bool reset) {
   // Init sequence, make sure its under 32 bytes, or split into multiples!
   static const uint8_t init_128x128[] = {
       // Init sequence for 128x32 OLED module
-      SSD1327_DISPLAYOFF, // 0xAE
-      SSD1327_SETCONTRAST,
+      SSD1322_DISPLAYOFF, // 0xAE
+      SSD1322_SETCONTRAST,
       0x80,             // 0x81, 0x80
-      SSD1327_SEGREMAP, // 0xA0 0x53
+      SSD1322_SEGREMAP, // 0xA0 0x53
       0x51, // remap memory, odd even columns, com flip and column swap
-      SSD1327_SETSTARTLINE,
+      SSD1322_SETSTARTLINE,
       0x00, // 0xA1, 0x00
-      SSD1327_SETDISPLAYOFFSET,
+      SSD1322_SETDISPLAYOFFSET,
       0x00, // 0xA2, 0x00
-      SSD1327_DISPLAYALLOFF, SSD1327_SETMULTIPLEX,
+      SSD1322_DISPLAYALLOFF, SSD1322_SETMULTIPLEX,
       0x7F, // 0xA8, 0x7F (1/64)
-      SSD1327_PHASELEN,
+      SSD1322_PHASELEN,
       0x11, // 0xB1, 0x11
       /*
-      SSD1327_GRAYTABLE,
+      SSD1322_GRAYTABLE,
       0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
       0x07, 0x08, 0x10, 0x18, 0x20, 0x2f, 0x38, 0x3f,
       */
-      SSD1327_DCLK,
+      SSD1322_DCLK,
       0x00, // 0xb3, 0x00 (100hz)
-      SSD1327_REGULATOR,
+      SSD1322_REGULATOR,
       0x01, // 0xAB, 0x01
-      SSD1327_PRECHARGE2,
+      SSD1322_PRECHARGE2,
       0x04, // 0xB6, 0x04
-      SSD1327_SETVCOM,
+      SSD1322_SETVCOM,
       0x0F, // 0xBE, 0x0F
-      SSD1327_PRECHARGE,
+      SSD1322_PRECHARGE,
       0x08, // 0xBC, 0x08
-      SSD1327_FUNCSELB,
+      SSD1322_FUNCSELB,
       0x62, // 0xD5, 0x62
-      SSD1327_CMDLOCK,
+      SSD1322_CMDLOCK,
       0x12, // 0xFD, 0x12
-      SSD1327_NORMALDISPLAY, SSD1327_DISPLAYON};
+      SSD1322_NORMALDISPLAY, SSD1322_DISPLAYON};
 
   page_offset = 0;
   if (!oled_commandList(init_128x128, sizeof(init_128x128))) {
@@ -200,7 +205,7 @@ bool Adafruit_SSD1327::begin(uint8_t addr, bool reset) {
   }
 
   delay(100);                      // 100ms delay recommended
-  oled_command(SSD1327_DISPLAYON); // 0xaf
+  oled_command(SSD1322_DISPLAYON); // 0xaf
   setContrast(0x2F);
 
   // memset(buffer, 0x81, _bpp * WIDTH * ((HEIGHT + 7) / 8));
@@ -211,9 +216,9 @@ bool Adafruit_SSD1327::begin(uint8_t addr, bool reset) {
 /*!
     @brief  Do the actual writing of the internal frame buffer to display RAM
 */
-void Adafruit_SSD1327::display(void) {
+void Adafruit_SSD1322::display(void) {
   // ESP8266 needs a periodic yield() call to avoid watchdog reset.
-  // With the limited size of SSD1327 displays, and the fast bitrate
+  // With the limited size of SSD1322 displays, and the fast bitrate
   // being used (1 MHz or more), I think one yield() immediately before
   // a screen write and one immediately after should cover it.  But if
   // not, if this becomes a problem, yields() might be added in the
@@ -265,8 +270,8 @@ void Adafruit_SSD1327::display(void) {
     maxbuff = i2c_dev->maxBufferSize() - 1;
   }
 
-  uint8_t cmd[] = {SSD1327_SETROW,    first_row, last_row,
-                   SSD1327_SETCOLUMN, row_start, row_end};
+  uint8_t cmd[] = {SSD1322_SETROW,    first_row, last_row,
+                   SSD1322_SETCOLUMN, row_start, row_end};
   oled_commandList(cmd, sizeof(cmd));
 
   for (uint8_t row = first_row; row <= last_row; row++) {
@@ -308,6 +313,6 @@ void Adafruit_SSD1327::display(void) {
             If true, switch to invert mode (black-on-white), else normal
             mode (white-on-black).
 */
-void Adafruit_SSD1327::invertDisplay(bool i) {
-  oled_command(i ? SSD1327_INVERTDISPLAY : SSD1327_NORMALDISPLAY);
+void Adafruit_SSD1322::invertDisplay(bool i) {
+  oled_command(i ? SSD1322_INVERTDISPLAY : SSD1322_NORMALDISPLAY);
 }
