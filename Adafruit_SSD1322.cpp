@@ -310,6 +310,9 @@ void Adafruit_SSD1322::spi_data(uint8_t *data, size_t count)
   {
     // We're using hardware SPI. 
     // On ESP32, this is a much more optimal way to do a bulk transfer than what's in Adafruit_SPIDevice::write().
+    // NOTE: I've created a PR that solves this problem properly in the Adafruit_SPIDevice class:
+    // https://github.com/adafruit/Adafruit_BusIO/pull/76
+    // If/when this is integrated into the mainline Adafruit BusIO repository, this code can be deleted.
     digitalWrite(dcPin, HIGH);
     spi_dev->beginTransaction();
     digitalWrite(csPin, LOW );
