@@ -27,43 +27,6 @@ redistribution
 // CONSTRUCTORS, DESTRUCTOR ------------------------------------------------
 
 /*!
-    @brief  Constructor for I2C-interfaced SSD1322 displays.
-    @param  w
-            Display width in pixels
-    @param  h
-            Display height in pixels
-    @param  twi
-            Pointer to an existing TwoWire instance (e.g. &Wire, the
-            microcontroller's primary I2C bus).
-    @param  rst_pin
-            Reset pin (using Arduino pin numbering), or -1 if not used
-            (some displays might be wired to share the microcontroller's
-            reset pin).
-    @param  clkDuring
-            Speed (in Hz) for Wire transmissions in SSD1322 library calls.
-            Defaults to 400000 (400 KHz), a known 'safe' value for most
-            microcontrollers, and meets the SSD1322 datasheet spec.
-            Some systems can operate I2C faster (800 KHz for ESP32, 1 MHz
-            for many other 32-bit MCUs), and some (perhaps not all)
-            SSD1322's can work with this -- so it's optionally be specified
-            here and is not a default behavior. (Ignored if using pre-1.5.7
-            Arduino software, which operates I2C at a fixed 100 KHz.)
-    @param  clkAfter
-            Speed (in Hz) for Wire transmissions following SSD1322 library
-            calls. Defaults to 100000 (100 KHz), the default Arduino Wire
-            speed. This is done rather than leaving it at the 'during' speed
-            because other devices on the I2C bus might not be compatible
-            with the faster rate. (Ignored if using pre-1.5.7 Arduino
-            software, which operates I2C at a fixed 100 KHz.)
-    @note   Call the object's begin() function before use -- buffer
-            allocation is performed there!
-*/
-Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, TwoWire *twi,
-                                   int8_t rst_pin, uint32_t clkDuring,
-                                   uint32_t clkAfter)
-    : Adafruit_GrayOLED(4, w, h, twi, rst_pin, clkDuring, clkAfter) {}
-
-/*!
     @brief  Constructor for SPI SSD1322 displays, using software (bitbang)
             SPI.
     @param  w
@@ -89,10 +52,11 @@ Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, TwoWire *twi,
     @note   Call the object's begin() function before use -- buffer
             allocation is performed there!
 */
-Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, int8_t mosi_pin,
+Adafruit_SSD1322::Adafruit_SSD1322(int8_t mosi_pin,
                                    int8_t sclk_pin, int8_t dc_pin,
                                    int8_t rst_pin, int8_t cs_pin)
-    : Adafruit_GrayOLED(4, w, h, mosi_pin, sclk_pin, dc_pin, rst_pin, cs_pin) {}
+    : Adafruit_GrayOLED(4, 256, 64, mosi_pin, sclk_pin, dc_pin, rst_pin, cs_pin),
+      spi(NULL) {}
 
 /*!
     @brief  Constructor for SPI SSD1322 displays, using native hardware SPI.
@@ -119,10 +83,11 @@ Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, int8_t mosi_pin,
     @note   Call the object's begin() function before use -- buffer
             allocation is performed there!
 */
-Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, SPIClass *spi,
+Adafruit_SSD1322::Adafruit_SSD1322(SPIClass *spi,
                                    int8_t dc_pin, int8_t rst_pin, int8_t cs_pin,
                                    uint32_t bitrate)
-    : Adafruit_GrayOLED(4, w, h, spi, dc_pin, rst_pin, cs_pin, bitrate) {}
+    : Adafruit_GrayOLED(4, 256, 64, spi, dc_pin, rst_pin, cs_pin, bitrate),
+      spi(spi) {}
 
 /*!
     @brief  Destructor for Adafruit_SSD1322 object.
@@ -133,11 +98,6 @@ Adafruit_SSD1322::~Adafruit_SSD1322(void) {}
 
 /*!
     @brief  Allocate RAM for image buffer, initialize peripherals and pins.
-    @param  addr
-            I2C address of corresponding SSD1322 display.
-            SPI displays (hardware or software) do not use addresses, but
-            this argument is still required (pass 0 or any value really,
-            it will simply be ignored). Default if unspecified is 0.
     @param  reset
             If true, and if the reset pin passed to the constructor is
             valid, a hard reset will be performed before initializing the
@@ -151,64 +111,89 @@ Adafruit_SSD1322::~Adafruit_SSD1322(void) {}
             proceeding.
     @note   MUST call this function before any drawing or updates!
 */
-bool Adafruit_SSD1322::begin(uint8_t addr, bool reset) {
+bool Adafruit_SSD1322::begin(bool reset) {
 
-  if (!Adafruit_GrayOLED::_init(addr, reset)) {
+  // set pin directions (superclass takes care of dcPin and rstPin)
+  pinMode(csPin, OUTPUT);
+
+  // The SSD1322 doesn't support I2C, so the address will never be used.
+  if (!Adafruit_GrayOLED::_init(0, reset)) {
     return false;
   }
 
-  /*
-  drawBitmap((WIDTH - splash2_width) / 2, (HEIGHT - splash2_height) / 2,
-             splash2_data, splash2_width, splash2_height, 1);
-             */
+  // Init sequence. This is copied from the initialization in:
+  // https://github.com/winneymj/ESP8266_SSD1322
+  // with a couple of modifications gleaned from the Arduino tutorial here:
+  // https://www.buydisplay.com/white-3-2-inch-arduino-raspberry-pi-oled-display-module-256x64-spi
 
-  // Init sequence, make sure its under 32 bytes, or split into multiples!
-  static const uint8_t init_128x128[] = {
-      // Init sequence for 128x32 OLED module
-      SSD1322_DISPLAYOFF, // 0xAE
-      SSD1322_SETCONTRAST,
-      0x80,             // 0x81, 0x80
-      SSD1322_SEGREMAP, // 0xA0 0x53
-      0x51, // remap memory, odd even columns, com flip and column swap
-      SSD1322_SETSTARTLINE,
-      0x00, // 0xA1, 0x00
-      SSD1322_SETDISPLAYOFFSET,
-      0x00, // 0xA2, 0x00
-      SSD1322_DISPLAYALLOFF, SSD1322_SETMULTIPLEX,
-      0x7F, // 0xA8, 0x7F (1/64)
-      SSD1322_PHASELEN,
-      0x11, // 0xB1, 0x11
-      /*
-      SSD1322_GRAYTABLE,
-      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-      0x07, 0x08, 0x10, 0x18, 0x20, 0x2f, 0x38, 0x3f,
-      */
-      SSD1322_DCLK,
-      0x00, // 0xb3, 0x00 (100hz)
-      SSD1322_REGULATOR,
-      0x01, // 0xAB, 0x01
-      SSD1322_PRECHARGE2,
-      0x04, // 0xB6, 0x04
-      SSD1322_SETVCOM,
-      0x0F, // 0xBE, 0x0F
-      SSD1322_PRECHARGE,
-      0x08, // 0xBC, 0x08
-      SSD1322_FUNCSELB,
-      0x62, // 0xD5, 0x62
-      SSD1322_CMDLOCK,
-      0x12, // 0xFD, 0x12
-      SSD1322_NORMALDISPLAY, SSD1322_DISPLAYON};
+	spi_command(SSD1322_CMDLOCK, // 0xFD
+	0x12);// Unlock OLED driver IC
 
-  page_offset = 0;
-  if (!oled_commandList(init_128x128, sizeof(init_128x128))) {
-    return false;
-  }
+	spi_command(SSD1322_DISPLAYOFF);// 0xAE
+
+	spi_command(SSD1322_DCLK,// 0xB3
+	0x91);
+
+	spi_command(SSD1322_SETMUXRATIO, // 0xCA
+	0x3F);// duty = 1/64
+
+	spi_command(SSD1322_SETDISPLAYOFFSET, // 0xA2
+	0x00);
+
+	spi_command(SSD1322_SETSTARTLINE, // 0xA1
+	0x00);
+
+	spi_command(SSD1322_SEGREMAP, // 0xA0
+	0x14, //Horizontal address increment,Disable Column Address Re-map,Enable Nibble Re-map,Scan from COM[N-1] to COM0,Disable COM Split Odd Even
+	0x11);//Enable Dual COM mode
+
+	spi_command(SSD1322_SETGPIO, // 0xB5
+	0x00);// Disable GPIO Pins Input
+
+	spi_command(SSD1322_REGULATOR, // 0xAB
+	0x01);// selection external vdd
+
+	spi_command(SSD1322_DISPLAYENHANCE, // 0xB4
+	0xA0,// enables the external VSL
+	0xFD);// 0xfFD,Enhanced low GS display quality;default is 0xb5(normal),
+
+	spi_command(SSD1322_SETCONTRASTCURRENT, // 0xC1
+	// 0xFF);// 0xFF - default is 0x7f
+  0x80);
+
+	spi_command(SSD1322_MASTERCURRENTCONTROL, // 0xC7
+	0x0F);// default is 0x0F
+
+	// Set grayscale
+	spi_command(SSD1322_SELECTDEFAULTGRAYSCALE); // 0xB9
+
+ 	spi_command(SSD1322_PHASELEN, // 0xB1
+	0xE2);// default is 0x74
+
+	spi_command(SSD1322_DISPLAYENHANCEB, // 0xD1
+	0x82, // Reserved;default is 0xa2(normal)
+	0x20);//
+
+	spi_command(SSD1322_SETPRECHARGEVOLTAGE, // 0xBB
+	0x1F);// 0.6xVcc
+
+	spi_command(SSD1322_PRECHARGE2, // 0xB6
+	0x08);// default
+
+	spi_command(SSD1322_SETVCOM, // 0xBE
+	0x07);// 0.86xVcc;default is 0x04
+
+	spi_command(SSD1322_NORMALDISPLAY);// 0xA6
+
+	spi_command(SSD1322_EXITPARTIALDISPLAY);// 0xA9
 
   delay(100);                      // 100ms delay recommended
-  oled_command(SSD1322_DISPLAYON); // 0xaf
-  setContrast(0x2F);
 
-  // memset(buffer, 0x81, _bpp * WIDTH * ((HEIGHT + 7) / 8));
+  spi_command(SSD1322_DISPLAYON); // 0xaf
+
+  // The default "set contrast" command (0x81) doesn't appear in the SSD1322 datasheet.
+  // Calling this might be bad?
+//   setContrast(0x2F);
 
   return true; // Success
 }
@@ -225,78 +210,62 @@ void Adafruit_SSD1322::display(void) {
   // 32-byte transfer condition below.
   yield();
 
-  uint16_t count = WIDTH * ((HEIGHT + 7) / 8);
+  if ((window_x1 >= window_x2) || (window_y1 >= window_y2))
+  {
+    // Serial.printf("Dirty window is empty, writing nothing.\n");
+    window_x1 = 1024;
+    window_y1 = 1024;
+    window_x2 = -1;
+    window_y2 = -1;
+    return;
+  }
+
   uint8_t *ptr = buffer;
-  uint8_t dc_byte = 0x40;
   uint8_t rows = HEIGHT;
 
-  uint8_t bytes_per_row = WIDTH / 2; // See fig 10-1 (64 bytes, 128 pixels)
-  uint8_t maxbuff = 128;
+  uint8_t bytes_per_row = WIDTH / 2;
 
-  /*
-  Serial.print("Window: (");
-  Serial.print(window_x1);
-  Serial.print(", ");
-  Serial.print(window_y1);
-  Serial.print(") -> (");
-  Serial.print(window_x2);
-  Serial.print(", ");
-  Serial.print(window_y2);
-  Serial.println(")");
-  */
+  // Column addresses seem to be in 2-byte (4-pixel) units.
+  int16_t row_start_column = min(int16_t((WIDTH/4)), int16_t(window_x1 / 4));
+  int16_t row_end_column = max(int16_t(0), int16_t(window_x2 / 4));
 
-  int16_t row_start =
-      min((int16_t)(bytes_per_row - 1), (int16_t)(window_x1 / 2));
-  int16_t row_end = max((int16_t)0, (int16_t)(window_x2 / 2));
+  int16_t first_row = min(int16_t(rows - 1), int16_t(window_y1));
+  // The dirty window seems to need to be expanded by 1 in y.
+  int16_t last_row = max(int16_t(0), int16_t(window_y2 + 1));
 
-  int16_t first_row = min((int16_t)(rows - 1), (int16_t)window_y1);
-  int16_t last_row = max((int16_t)0, (int16_t)window_y2);
+  spi_command(SSD1322_SETCOLUMN, uint8_t(row_start_column + 0x1c), uint8_t(row_end_column + 0x1c));
+  spi_command(SSD1322_SETROW, uint8_t(first_row), uint8_t(last_row));
+  spi_command(SSD1322_WRITERAM);
 
-  /*
-  Serial.print("Rows: ");
-  Serial.print(first_row);
-  Serial.print(" -> ");
-  Serial.println(last_row);
+  digitalWrite(dcPin, HIGH);
 
-  Serial.print("Row start/end: ");
-  Serial.print(row_start);
-  Serial.print(" -> ");
-  Serial.println(row_end);
-  */
+  // Need to write two bytes for every column.
+  size_t bytes = (row_end_column - row_start_column + 1) * 2;
 
-  if (i2c_dev) { // I2C
-    // Set high speed clk
-    i2c_dev->setSpeed(i2c_preclk);
-    maxbuff = i2c_dev->maxBufferSize() - 1;
+  if (bytes == bytes_per_row)
+  {
+    // Contiguous write case -- just write the entire buffer
+    bytes *= last_row - first_row;
+    ptr = buffer + (uint16_t)first_row * (uint16_t)bytes_per_row;
+    ptr += (row_start_column * 2);
+    // Write the entire buffer in one go.
+    spi_data(ptr, bytes);
   }
+  else
+  {
+    // Serial.printf("writing %d rows at %d bytes each\n", int(last_row - first_row), int(bytes));
 
-  uint8_t cmd[] = {SSD1322_SETROW,    first_row, last_row,
-                   SSD1322_SETCOLUMN, row_start, row_end};
-  oled_commandList(cmd, sizeof(cmd));
+    for (uint8_t row = first_row; row <= last_row; row++) {
+      ptr = buffer + (uint16_t)row * (uint16_t)bytes_per_row;
 
-  for (uint8_t row = first_row; row <= last_row; row++) {
-    uint8_t bytes_remaining = row_end - row_start + 1;
-    ptr = buffer + (uint16_t)row * (uint16_t)bytes_per_row;
-    // fast forward to dirty rectangle beginning
-    ptr += row_start;
+      // fast forward to dirty rectangle beginning
+      ptr += (row_start_column * 2);
 
-    while (bytes_remaining) {
-      uint8_t to_write = min(bytes_remaining, maxbuff);
-      if (i2c_dev) {
-        i2c_dev->write(ptr, to_write, true, &dc_byte, 1);
-      } else {
-        digitalWrite(dcPin, HIGH);
-        spi_dev->write(ptr, to_write);
-      }
-      ptr += to_write;
-      bytes_remaining -= to_write;
+      // Write the entire contents of this row in one go.
+      spi_data(ptr, bytes);
       yield();
-    }
-  }
 
-  if (i2c_dev) { // I2C
-    // Set low speed clk
-    i2c_dev->setSpeed(i2c_postclk);
+    }
   }
 
   // reset dirty window
@@ -304,6 +273,56 @@ void Adafruit_SSD1322::display(void) {
   window_y1 = 1024;
   window_x2 = -1;
   window_y2 = -1;
+}
+
+void Adafruit_SSD1322::spi_command(uint8_t c)
+{
+  // Serial.printf("command: %02x\n", c);
+  spi_command_data(c, (uint8_t*)NULL, 0);
+}
+
+void Adafruit_SSD1322::spi_command(uint8_t c, uint8_t d1)
+{
+  // Serial.printf("command: %02x %02x\n", c, d1);
+  spi_command_data(c, &d1, 1);
+}
+
+void Adafruit_SSD1322::spi_command(uint8_t c, uint8_t d1, uint8_t d2)
+{
+  // Serial.printf("command: %02x %02x %02x\n", c, d1, d2);
+  uint8_t buf[] = {d1, d2};
+  spi_command_data(c, buf, 2);
+}
+
+void Adafruit_SSD1322::spi_command_data(uint8_t c, uint8_t *data, size_t count)
+{
+  digitalWrite(dcPin, LOW);
+  spi_dev->write(&c, 1);
+  if (count > 0) {
+    spi_data(data, count);
+  }
+}
+
+void Adafruit_SSD1322::spi_data(uint8_t *data, size_t count)
+{
+#if defined(ARDUINO_ARCH_ESP32)
+  if (spi != NULL) 
+  {
+    // We're using hardware SPI. 
+    // On ESP32, this is a much more optimal way to do a bulk transfer than what's in Adafruit_SPIDevice::write().
+    digitalWrite(dcPin, HIGH);
+    spi_dev->beginTransaction();
+    digitalWrite(csPin, LOW );
+    spi->writeBytes(data, count);
+    digitalWrite(csPin, HIGH);
+    spi_dev->endTransaction();
+  } 
+  else 
+#endif
+  {
+    digitalWrite(dcPin, HIGH);
+    spi_dev->write(data, count);    
+  }
 }
 
 /*!
@@ -314,5 +333,5 @@ void Adafruit_SSD1322::display(void) {
             mode (white-on-black).
 */
 void Adafruit_SSD1322::invertDisplay(bool i) {
-  oled_command(i ? SSD1322_INVERTDISPLAY : SSD1322_NORMALDISPLAY);
+  spi_command(i ? SSD1322_INVERTDISPLAY : SSD1322_NORMALDISPLAY);
 }
