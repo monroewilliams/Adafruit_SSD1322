@@ -90,7 +90,4 @@ private:
 
   void spi_command_data(uint8_t c, uint8_t *data, size_t count);
   void spi_data(uint8_t *data, size_t count);
-  // Adafruit_SPIDevice doesn't allow access to the raw SPIClass device,
-  // and there are some optimizations I can't make without it. Stash it here.
-  SPIClass *spi;
 };

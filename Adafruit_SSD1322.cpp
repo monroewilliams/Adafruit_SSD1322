@@ -55,8 +55,7 @@ redistribution
 Adafruit_SSD1322::Adafruit_SSD1322(int8_t mosi_pin,
                                    int8_t sclk_pin, int8_t dc_pin,
                                    int8_t rst_pin, int8_t cs_pin)
-    : Adafruit_GrayOLED(4, 256, 64, mosi_pin, sclk_pin, dc_pin, rst_pin, cs_pin),
-      spi(NULL) {}
+    : Adafruit_GrayOLED(4, 256, 64, mosi_pin, sclk_pin, dc_pin, rst_pin, cs_pin) {}
 
 /*!
     @brief  Constructor for SPI SSD1322 displays, using native hardware SPI.
@@ -86,8 +85,7 @@ Adafruit_SSD1322::Adafruit_SSD1322(int8_t mosi_pin,
 Adafruit_SSD1322::Adafruit_SSD1322(SPIClass *spi,
                                    int8_t dc_pin, int8_t rst_pin, int8_t cs_pin,
                                    uint32_t bitrate)
-    : Adafruit_GrayOLED(4, 256, 64, spi, dc_pin, rst_pin, cs_pin, bitrate),
-      spi(spi) {}
+    : Adafruit_GrayOLED(4, 256, 64, spi, dc_pin, rst_pin, cs_pin, bitrate) {}
 
 /*!
     @brief  Destructor for Adafruit_SSD1322 object.
@@ -305,27 +303,8 @@ void Adafruit_SSD1322::spi_command_data(uint8_t c, uint8_t *data, size_t count)
 
 void Adafruit_SSD1322::spi_data(uint8_t *data, size_t count)
 {
-#if defined(ARDUINO_ARCH_ESP32)
-  if (spi != NULL) 
-  {
-    // We're using hardware SPI. 
-    // On ESP32, this is a much more optimal way to do a bulk transfer than what's in Adafruit_SPIDevice::write().
-    // NOTE: I've created a PR that solves this problem properly in the Adafruit_SPIDevice class:
-    // https://github.com/adafruit/Adafruit_BusIO/pull/76
-    // If/when this is integrated into the mainline Adafruit BusIO repository, this code can be deleted.
-    digitalWrite(dcPin, HIGH);
-    spi_dev->beginTransaction();
-    digitalWrite(csPin, LOW );
-    spi->writeBytes(data, count);
-    digitalWrite(csPin, HIGH);
-    spi_dev->endTransaction();
-  } 
-  else 
-#endif
-  {
-    digitalWrite(dcPin, HIGH);
-    spi_dev->write(data, count);    
-  }
+  digitalWrite(dcPin, HIGH);
+  spi_dev->write(data, count);    
 }
 
 /*!
