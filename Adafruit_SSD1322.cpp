@@ -317,3 +317,8 @@ void Adafruit_SSD1322::spi_data(uint8_t *data, size_t count)
 void Adafruit_SSD1322::invertDisplay(bool i) {
   spi_command(i ? SSD1322_INVERTDISPLAY : SSD1322_NORMALDISPLAY);
 }
+
+void Adafruit_SSD1322::setContrast(uint8_t level)
+{
+	spi_command(SSD1322_SETCONTRASTCURRENT, level);
+}

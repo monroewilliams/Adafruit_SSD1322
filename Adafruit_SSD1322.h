@@ -79,6 +79,10 @@ public:
   void display();
   void invertDisplay(bool i);
 
+  // Slightly different from the default implementation in the superclass --
+  // range is from 0x00 to 0xFF
+  void setContrast(uint8_t level);
+
 private:
   int8_t page_offset = 0;
   int8_t column_offset = 0;
